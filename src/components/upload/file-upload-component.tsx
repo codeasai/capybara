@@ -24,6 +24,21 @@ const FileUploadComponent = ({ isOpen, onClose }: FileUploadProps) => {
     const uploadedFile = event.target.files[0];
     if (!uploadedFile) return;
     
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+    
+    if (!allowedTypes.includes(uploadedFile.type)) {
+      setStatus({
+        type: 'error',
+        message: 'Invalid file type. Please upload PDF, DOC, DOCX, or TXT files only.'
+      });
+      return;
+    }
+
     if (uploadedFile.size > MAX_FILE_SIZE) {
       setStatus({ 
         type: 'error', 

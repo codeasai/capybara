@@ -52,7 +52,6 @@ export async function DELETE(request: NextRequest) {
 
 export async function GET() {
   try {
-    // สร้างโฟลเดอร์ถ้ายังไม่มี
     await fs.mkdir(UPLOAD_DIR, { recursive: true });
 
     const files = await fs.readdir(UPLOAD_DIR);
@@ -61,11 +60,15 @@ export async function GET() {
         const filePath = path.join(UPLOAD_DIR, filename);
         const stats = await fs.stat(filePath);
         
+        const fileId = generateFileId(filename, stats.birthtime);
+        
         return {
-          id: filename,
+          id: fileId,
           name: filename,
           size: stats.size,
           createdAt: stats.birthtime.toISOString(),
+          mimeType: getMimeType(filename),
+          path: filePath,
         };
       })
     );
@@ -78,4 +81,25 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+// Utility functions
+function generateFileId(filename: string, createdAt: Date): string {
+  const timestamp = createdAt.getTime();
+  const hash = require('crypto')
+    .createHash('md5')
+    .update(`${filename}-${timestamp}`)
+    .digest('hex');
+  return hash;
+}
+
+function getMimeType(filename: string): string {
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes = {
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.txt': 'text/plain'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
 } 

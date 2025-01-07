@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { File, Trash2, Loader2, Home, Upload } from 'lucide-react';
+import { File, Trash2, Loader2, Home, Upload, SplitSquareHorizontal, Play, FileText } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
@@ -11,6 +11,10 @@ interface FileItem {
   name: string;
   size: number;
   createdAt: string;
+  mimeType: string;
+  path: string;
+  status?: 'idle' | 'processing' | 'completed' | 'error';
+  error?: string;
 }
 
 const FileManager = () => {
@@ -18,6 +22,7 @@ const FileManager = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [processingFile, setProcessingFile] = useState<string | null>(null);
 
   const fetchFiles = async () => {
     try {
@@ -43,21 +48,23 @@ const FileManager = () => {
     if (!confirm('Are you sure you want to delete this file?')) return;
 
     try {
-      const response = await fetch(`/api/files/${filename}`, {
+      console.log('Deleting file:', filename);
+      const response = await fetch(`/api/files/${encodeURIComponent(filename)}`, {
         method: 'DELETE',
       });
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        const data = await response.json();
         throw new Error(data.error || 'Failed to delete file');
       }
 
-      // รีเฟรชรายการไฟล์หลังลบสำเร็จ
+      console.log('Delete response:', data);
       await fetchFiles();
       
     } catch (err) {
+      console.error('Error deleting file:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete file');
-      console.error(err);
     }
   };
 
@@ -67,6 +74,47 @@ const FileManager = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const processFile = async (filename: string) => {
+    try {
+      setProcessingFile(filename);
+      setError('');
+
+      // อัพเดทสถานะไฟล์เป็น processing
+      setFiles(files.map(f => 
+        f.id === filename 
+          ? { ...f, status: 'processing' } 
+          : f
+      ));
+
+      const response = await fetch(`/api/process/${filename}`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Processing failed');
+      }
+
+      // อัพเดทสถานะไฟล์เป็น completed
+      setFiles(files.map(f => 
+        f.id === filename 
+          ? { ...f, status: 'completed' } 
+          : f
+      ));
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Processing failed');
+      // อัพเดทสถานะไฟล์เป็น error
+      setFiles(files.map(f => 
+        f.id === filename 
+          ? { ...f, status: 'error', error: err instanceof Error ? err.message : 'Processing failed' } 
+          : f
+      ));
+    } finally {
+      setProcessingFile(null);
+    }
   };
 
   if (loading) {
@@ -117,24 +165,43 @@ const FileManager = () => {
                 className="flex items-center justify-between p-6 hover:bg-gray-50"
               >
                 <div className="flex items-center space-x-4">
-                  <File className="w-6 h-6 text-blue-500" />
+                  <div className="flex-shrink-0">
+                    {file.mimeType === 'application/pdf' && <FileText className="w-6 h-6 text-red-500" />}
+                    {file.mimeType.includes('word') && <FileText className="w-6 h-6 text-blue-500" />}
+                    {file.mimeType === 'text/plain' && <FileText className="w-6 h-6 text-gray-500" />}
+                  </div>
                   <div>
-                    <h3 className="text-sm font-medium text-gray-900">
-                      {file.name}
-                    </h3>
-                    <div className="flex space-x-4 text-sm text-gray-500">
+                    <h3 className="text-sm font-medium text-gray-900">{file.name}</h3>
+                    <div className="flex space-x-4 text-xs text-gray-500">
                       <span>{formatFileSize(file.size)}</span>
                       <span>•</span>
-                      <span>
-                        Uploaded {formatDistanceToNow(new Date(file.createdAt))} ago
-                      </span>
+                      <span>{file.mimeType}</span>
+                      <span>•</span>
+                      <span>Modified {formatDistanceToNow(new Date(file.createdAt))} ago</span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => deleteFile(file.id)}
+                    onClick={() => processFile(file.id)}
+                    disabled={processingFile === file.id}
+                    className={`p-2 rounded-full hover:bg-gray-100 ${
+                      processingFile === file.id 
+                        ? 'text-gray-400 cursor-not-allowed' 
+                        : 'text-blue-500 hover:text-blue-600'
+                    }`}
+                    title="Process file"
+                  >
+                    {processingFile === file.id ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Play className="w-5 h-5" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => deleteFile(file.name)}
+                    disabled={processingFile === file.id}
                     className="p-2 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100"
                     title="Delete file"
                   >
