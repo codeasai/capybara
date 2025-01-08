@@ -1,8 +1,15 @@
-# PDF Processing Application
+# Elliott Wave Pattern Analysis System
 
-A web application for processing PDF files using FastAPI and Next.js.
+ระบบวิเคราะห์รูปแบบ Elliott Wave โดยใช้ AI และ Vector Database
 
-## Setup
+## คุณสมบัติหลัก
 
-1. Make sure you have Python 3.8+ and Node.js installed
-2. Run setup:
+- 📚 สกัดรูปแบบ Elliott Wave จากเอกสาร PDF
+- 🔍 ค้นหารูปแบบที่คล้ายคลึงกัน
+- 🚀 รองรับการทำงานบน GPU และ CPU
+- 💾 รองรับ Vector Database หลายประเภท (Chroma, Qdrant, FAISS)
+- 🔄 Real-time processing และ streaming response
+
+## การติดตั้ง
+
+1. ติดตั้ง Python dependencies:

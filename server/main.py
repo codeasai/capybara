@@ -42,15 +42,15 @@ async def upload_large_pdf(file: UploadFile = File(...)):
     if not file.filename.endswith('.pdf'):
         return {"error": "File must be a PDF"}
         
-    # ตรวจสอบขนาดไฟล์ (จำกัดที่ 50MB)
-    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB in bytes
+    # ตรวจสอบขนาดไฟล์ (จำกัดที่ 100MB)
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
-        return {"error": "File size exceeds 50MB limit"}
+        return {"error": "File size exceeds 100MB limit"}
     
     file_id = f"{file.filename}_{int(time.time())}"
     
-    # เปลี่ยนเส้นทางไฟล์ไปยัง src/uploads/
+    # สร้างโฟลเดอร์ถ้ายังไม่มี
     upload_dir = "src/uploads"
     if not os.path.exists(upload_dir):
         os.makedirs(upload_dir)
@@ -60,13 +60,9 @@ async def upload_large_pdf(file: UploadFile = File(...)):
     try:
         await set_processing_status(file_id, ProcessingStatus.PROCESSING)
         
-        # Save file to uploads directory
-        try:
-            with open(file_path, "wb") as buffer:
-                buffer.write(content)
-        except Exception as e:
-            await set_processing_status(file_id, ProcessingStatus.ERROR)
-            return {"error": f"Failed to save file: {str(e)}"}
+        # บันทึกไฟล์
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
             
         if not os.path.exists(file_path):
             await set_processing_status(file_id, ProcessingStatus.ERROR)
@@ -79,15 +75,28 @@ async def upload_large_pdf(file: UploadFile = File(...)):
                         await set_processing_status(file_id, ProcessingStatus.ERROR)
                         yield json.dumps({"error": result["error"]}) + "\n"
                         return
+                        
+                    # อัพเดทสถานะและความคืบหน้า
+                    if result.get("status") == "completed":
+                        await set_processing_status(
+                            file_id, 
+                            ProcessingStatus.COMPLETED,
+                            metadata={
+                                "total_patterns": result.get("total_patterns_found", 0),
+                                "pattern_types": result.get("pattern_types", [])
+                            }
+                        )
+                    
                     yield json.dumps(result) + "\n"
-                await set_processing_status(file_id, ProcessingStatus.COMPLETED)
+                    
             except Exception as e:
                 await set_processing_status(file_id, ProcessingStatus.ERROR)
                 yield json.dumps({"error": str(e)}) + "\n"
             finally:
-                # ไม่ลบไฟล์หลังจากประมวลผลเสร็จ เพราะต้องการเก็บไว้ใน uploads
-                pass
-        
+                # ลบไฟล์หลังจากประมวลผลเสร็จ
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            
         return StreamingResponse(
             process_streaming(),
             media_type="application/x-ndjson"

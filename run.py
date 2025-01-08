@@ -8,6 +8,15 @@ import time
 from typing import Tuple
 from pathlib import Path
 from threading import Thread
+from dotenv import load_dotenv
+
+# โหลด environment variables
+load_dotenv()
+
+# ดึงค่า config
+FASTAPI_HOST = os.getenv('FASTAPI_HOST', '127.0.0.1')
+FASTAPI_PORT = int(os.getenv('FASTAPI_PORT', '8000'))
+NEXTJS_PORT = int(os.getenv('NEXTJS_PORT', '3000'))
 
 def is_port_in_use(port: int) -> bool:
     """ตรวจสอบว่า port กำลังถูกใช้งานอยู่หรือไม่"""

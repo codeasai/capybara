@@ -3,4 +3,6 @@
 .idea/misc.xml
 .idea/modules.xml
 .idea/inspectionProfiles/profiles_settings.xml
-node_modules/*
+node_modules
+.env
+.venv
